@@ -1,6 +1,0 @@
-runtime:
-  ruby-version: '1.8'
-  jruby-path: plugins/RubyBukkit/jruby.jar
-settings:
-  plugins-path: plugins/RubyBukkit
-  debug: true
