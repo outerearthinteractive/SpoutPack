@@ -1,0 +1,4 @@
+motd: Welcome to the OEI Developement Server! This server is using SpoutCraft. Server auto downloads texturepacks.
+regions: []
+default_texture_pack: http://5493-planetmc.voxcdn.com/files/resource_media/texture/Star%20Trek%20Pack%20Mk%20VI.zip
+select_tool: 294
