@@ -1,6 +1,7 @@
 # SpoutPack
 # A list of useful functions and tools for any server running spout.
 
+#### Plugin Info ####
 Plugin.is {
     name "SpoutPack"
     version "0.3"
@@ -16,6 +17,14 @@ Plugin.is {
         :usage => "/spreload",
     }
 }
+#### Requires ####
+file = "/usr/share/ruby-rvm/rubies/jruby-1.6.1/lib/ruby/1.8/"
+$: << file unless $:.include? file
+require 'yaml'
+
+#### Imports ####
+# Java Imports
+import 'java.util.logging.Logger'
 
 # Spout imports
 import 'org.getspout.spoutapi.gui.Widget'
@@ -30,21 +39,25 @@ import 'org.bukkit.Location'
 import 'org.bukkit.event.Event'
 import 'org.bukkit.event.player.PlayerMoveEvent'
 import 'org.bukkit.GameMode'
-#import 'org.bukkit.configuration.file.FileConfiguration'
 
 # WorldGuard imports
 import 'com.sk89q.worldguard.protection.managers.RegionManager'
 import 'com.sk89q.worldguard.protection.ApplicableRegionSet'
 import 'com.sk89q.worldguard.bukkit.BukkitUtil'
 
+#### Main Plugin ####
 class SpoutPack < RubyPlugin
-	def log msg
+	def info msg
 		#Uses bash escape codes for pretty colors.
-		print "\e[36m[\e[32mSpoutCraft\e[36m] #{msg}\e[0m"
+		@logger.info "\e[36m[\e[32mSpoutCraft\e[36m] #{msg}\e[0m"
+	end
+	def debug msg
+		#Uses bash escape codes for pretty colors.
+		@logger.debug "\e[33m[\e[32mSpoutCraft\e[33m] #{msg}\e[0m"
 	end
 	def err msg
 		#Uses bash escape codes for pretty colors.
-		print "\e[31m[\e[32mSpoutCraft\e[31m] #{msg}\e[0m"
+		@logger.error "\e[31m[\e[32mSpoutCraft\e[31m] #{msg}\e[0m"
 	end
 	def load_config
 		load "SpoutPack/config.rb"
@@ -52,14 +65,14 @@ class SpoutPack < RubyPlugin
 	end
    	def onEnable
    		#Housekeeping.
+   		@logger = Logger.getLogger("Minecraft")
    		load_config
       	@pm = getServer.getPluginManager
-      	
-      	if @conf.motd
-      		log "MOTD Enabled"
-		  	registerEvent(Event::Type::PLAYER_LOGIN, Event::Priority::Normal) do |loginEvent|
+      	if false
+      		info "Password enabled."
+      		registerEvent(Event::Type::PLAYER_LOGIN, Event::Priority::Normal) do |infoinEvent|
 		  		scheduleSyncDelayedTask(1) do
-					player = SpoutManager::getPlayer(loginEvent.getPlayer)
+					player = SpoutManager::getPlayer(infoinEvent.getPlayer)
 					popup = GenericPopup.new
 					text = GenericLabel.new @conf.motd
 					text.setAuto(true)
@@ -77,25 +90,48 @@ class SpoutPack < RubyPlugin
 					popup.attachWidget(self, text)
 					popup.attachWidget(self, esc)
 					player.getMainScreen().attachPopupScreen(popup)
-					log "Created MOTD for #{player.getDisplayName()}"
+					info "Created MOTD for #{player.getDisplayName()}"
+				end
+			end
+      	end
+      	if @conf.motd
+      		info "MOTD enabled."
+		  	registerEvent(Event::Type::PLAYER_LOGIN, Event::Priority::Normal) do |infoinEvent|
+		  		scheduleSyncDelayedTask(1) do
+					player = SpoutManager::getPlayer(infoinEvent.getPlayer)
+					popup = GenericPopup.new
+					text = GenericLabel.new @conf.motd
+					text.setAuto(true)
+					text.setResize(true)
+					text.setFixed(false)
+					text.setAlign(WidgetAnchor::TOP_CENTER)
+					text.setAnchor(WidgetAnchor::TOP_CENTER)
+					text.doResize()
+					esc = GenericLabel.new "Press ESC to close"
+					esc.setAlign(WidgetAnchor::BOTTOM_CENTER)
+					esc.setAnchor(WidgetAnchor::BOTTOM_CENTER)
+					esc.setFixed(false)
+					esc.setResize(true)
+					esc.doResize()
+					popup.attachWidget(self, text)
+					popup.attachWidget(self, esc)
+					player.getMainScreen().attachPopupScreen(popup)
+					info "Created MOTD for #{player.getDisplayName()}"
 				end
 			end
 		end
-		if @conf.default_texture_pack
-      		log "Default Texture Pack enabled."
-		  	registerEvent(Event::Type::PLAYER_LOGIN, Event::Priority::Normal) do |loginEvent|
-		  		scheduleSyncDelayedTask(20) do
-					player = SpoutManager::getPlayer(loginEvent.getPlayer)
-					player_data = PlayerData.new player
-					@players.store(player,player_data) 
-					player_data.set_texture_pack(@conf.default_texture_pack)
-					log "Set texture pack for #{player.getDisplayName()}"
-					update_region player
-				end
+	  	registerEvent(Event::Type::PLAYER_JOIN, Event::Priority::Normal) do |event|
+	  		scheduleSyncDelayedTask(20) do
+				player = SpoutManager::getPlayer(event.getPlayer)
+				player_data = PlayerData.new player
+				@players.store(player,player_data) 
+				player_data.set_texture_pack(@conf.default_texture_pack)
+				info "Set texture pack for #{player.getDisplayName()}"
+				update_region player
 			end
 		end
 		if @conf.regions
-			log "Regions are enabled."
+			info "Regions are enabled."
 			registerEvent(Event::Type::PLAYER_MOVE, Event::Priority::Normal) do |event|
 				player = SpoutManager::getPlayer(event.getPlayer)
 				update_region player
@@ -106,21 +142,21 @@ class SpoutPack < RubyPlugin
 			err "Worldguard not found. Errors will probably occur!"
 		end
 		@players = {}
-		log "Enabled."
+		info "Enabled."
    	end
    	def onDisable
-   		log "Disabled."
+   		info "Disabled."
 	end
 	def onCommand(sender, cmd, label, args)
 		player = SpoutManager::getPlayer(sender.getPlayer)
-	   	if cmd.getName()=="title"||cmd.getName()=="settitle"
+	   	if cmd.getName()=="title"||cmd.getName()=="settitle" 
 	   		if args.length==1&&player.has("spoutpack.title.self")
 	   			player.setTitle args[0]
-	   			log "Set #{player.getDisplayName}'s title."
+	   			info "Set #{player.getDisplayName}'s title."
 	   			return true
 	   		elsif args.length==2&&player.has("spoutpack.title.other")
 	   			player.setTitle args[0]
-	   			log "#{sender.getPlayer.getDisplayName} set #{player.getDisplayName}'s title."
+	   			info "#{sender.getPlayer.getDisplayName} set #{player.getDisplayName}'s title."
 	   			return true
 	   		end
 	   	end
@@ -144,9 +180,9 @@ class SpoutPack < RubyPlugin
 				in_region = true
 				if region.id!=player_data.region
 					if player_data.region==""
-						log "#{player.getDisplayName} has entered region: #{region.id}."
+						info "#{player.getDisplayName} has entered region: #{region.id}."
 					elsif
-						log "#{player.getDisplayName} has left region: #{player_data.region}, to enter region: #{region.id}."
+						info "#{player.getDisplayName} has left region: #{player_data.region}, to enter region: #{region.id}."
 					end
 					player_data.region = region.id
 					mode = player.getGameMode
@@ -159,7 +195,7 @@ class SpoutPack < RubyPlugin
 			end
 		end
 		if !in_region && player_data.region!=""
-			log "#{player.getDisplayName} has left region: #{player_data.region}."
+			info "#{player.getDisplayName} has left region: #{player_data.region}."
 			player_data.region = ""
 			player.setGameMode @conf.default_gamemode
 			player_data.set_texture_pack @conf.default_texture_pack
@@ -167,7 +203,7 @@ class SpoutPack < RubyPlugin
 	end
 end
 
-# Data Types
+#### Data Types/Utils ####
 class ConfigBase
 	def region id, creative, texture_pack
 		if !@regions
@@ -183,6 +219,7 @@ class PlayerData
 		@player = player
 		@region = ""
 		@texture_pack = ""
+		@authed = true
 	end
 	def set_texture_pack texture_pack
 		if texture_pack!=@texture_pack
@@ -205,6 +242,7 @@ class Region
 	end
 end
 
+#### Other Included Libraries ####
 # ================== EVERYTHING BELOW THIS LINE BELONG TO THEIR RESPECTIVE OWNERS ==================
 
 # Ruby permissions library 0.2
