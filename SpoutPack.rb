@@ -18,8 +18,14 @@ Plugin.is {
     }
 }
 #### Requires ####
-file = "/usr/share/ruby-rvm/rubies/jruby-1.6.1/lib/ruby/1.8/"
+# Adds default jruby libraries to path so you can easily require them. 
+# (This should be done by default, but requires more than just the jruby.jar.)
+# TODO: Fix this in RubyBukkit source & push the changes.
+# This plugin requires 1.9 for easy Psych compatibility.
+file = "/usr/share/ruby-rvm/rubies/jruby-1.6.1/lib/ruby/1.9/"
 $: << file unless $:.include? file
+
+# Ruby Libraries
 require 'yaml'
 
 #### Imports ####
@@ -46,31 +52,38 @@ import 'com.sk89q.worldguard.protection.ApplicableRegionSet'
 import 'com.sk89q.worldguard.bukkit.BukkitUtil'
 
 #### Main Plugin ####
+# Pretty much everything happens here.
 class SpoutPack < RubyPlugin
-	def info msg
-		#Uses bash escape codes for pretty colors.
+	#### I/O to Console ####
+	# TODO: Set logger prefix & use @log.info, @log.debug, etc.
+	def info msg # Standard output to console.
+		# Uses bash escape codes for pretty colors.
 		@logger.info "\e[36m[\e[32mSpoutCraft\e[36m] #{msg}\e[0m"
 	end
-	def debug msg
-		#Uses bash escape codes for pretty colors.
+	def debug msg # Debug output to console.
+		# Uses bash escape codes for pretty colors.
 		@logger.debug "\e[33m[\e[32mSpoutCraft\e[33m] #{msg}\e[0m"
 	end
-	def err msg
-		#Uses bash escape codes for pretty colors.
+	def err msg # Used for error messages.
+		# Uses bash escape codes for pretty colors.
 		@logger.error "\e[31m[\e[32mSpoutCraft\e[31m] #{msg}\e[0m"
 	end
+
+	# Easy method to load/reload the config file.
 	def load_config
 		load "SpoutPack/config.rb"
 		@conf = Config.new
+		#TODO: Convert to yaml based config. Should be able to keep same file format.
 	end
    	def onEnable
-   		#Housekeeping.
    		@logger = Logger.getLogger("Minecraft")
    		load_config
-      	@pm = getServer.getPluginManager
-      	if false
-      		info "Password enabled."
-      		registerEvent(Event::Type::PLAYER_LOGIN, Event::Priority::Normal) do |infoinEvent|
+      		@pm = getServer.getPluginManager
+      	
+		# Change this to if @conf.password to work. Has errors.
+		if false
+      			info "Password enabled."
+      			registerEvent(Event::Type::PLAYER_LOGIN, Event::Priority::Normal) do |infoinEvent|
 		  		scheduleSyncDelayedTask(1) do
 					player = SpoutManager::getPlayer(infoinEvent.getPlayer)
 					popup = GenericPopup.new
@@ -93,10 +106,12 @@ class SpoutPack < RubyPlugin
 					info "Created MOTD for #{player.getDisplayName()}"
 				end
 			end
-      	end
-      	if @conf.motd
-      		info "MOTD enabled."
-		  	registerEvent(Event::Type::PLAYER_LOGIN, Event::Priority::Normal) do |infoinEvent|
+      		end
+		# MOTD handling code.
+		# TODO: Add close button or Rules Accept/Deny button.
+      		if @conf.motd
+      			info "MOTD enabled."
+		  	registerEvent(Event::Type::PLAYER_JOIN, Event::Priority::Normal) do |infoinEvent|
 		  		scheduleSyncDelayedTask(1) do
 					player = SpoutManager::getPlayer(infoinEvent.getPlayer)
 					popup = GenericPopup.new
@@ -120,8 +135,10 @@ class SpoutPack < RubyPlugin
 				end
 			end
 		end
+		# Extra player data handling code. 
+		# TODO: Persist player data (inventory is a must).
 	  	registerEvent(Event::Type::PLAYER_JOIN, Event::Priority::Normal) do |event|
-	  		scheduleSyncDelayedTask(20) do
+	  		scheduleSyncDelayedTask(1) do
 				player = SpoutManager::getPlayer(event.getPlayer)
 				player_data = PlayerData.new player
 				@players.store(player,player_data) 
@@ -130,6 +147,8 @@ class SpoutPack < RubyPlugin
 				update_region player
 			end
 		end
+		# Region move events. 
+		# TODO: Region persistence via YAML w/ ingame commands.
 		if @conf.regions
 			info "Regions are enabled."
 			registerEvent(Event::Type::PLAYER_MOVE, Event::Priority::Normal) do |event|
@@ -137,6 +156,8 @@ class SpoutPack < RubyPlugin
 				update_region player
 			end
 		end
+		# Attempt to find worldguard. May later pop errors if worldguard is reloaded. (Spout doesn't like being reloaded.)
+		# TODO: Better error handling (may not need it).
 		@wg = @pm.getPlugin("WorldGuard")
 		if !@wg
 			err "Worldguard not found. Errors will probably occur!"
@@ -145,9 +166,11 @@ class SpoutPack < RubyPlugin
 		info "Enabled."
    	end
    	def onDisable
+		# TODO: Save yamls for players/regions (seperate function?).
    		info "Disabled."
 	end
 	def onCommand(sender, cmd, label, args)
+		# TODO: Region commands.
 		player = SpoutManager::getPlayer(sender.getPlayer)
 	   	if cmd.getName()=="title"||cmd.getName()=="settitle" 
 	   		if args.length==1&&player.has("spoutpack.title.self")
@@ -166,7 +189,9 @@ class SpoutPack < RubyPlugin
 	   	end
 	   	return false
 	end
+	# Easy method to update region info (used during move events & player join)
 	def update_region player
+		# TODO: Consider switching from event driven to time driven for less server impact.
 		pt = BukkitUtil.toVector(player.getLocation)
 		
 		rm = @wg.getRegionManager(player.getWorld)
@@ -178,6 +203,7 @@ class SpoutPack < RubyPlugin
 			region = @conf.regions[elem.getId]
 			if region
 				in_region = true
+				# Player entered/switched region.
 				if region.id!=player_data.region
 					if player_data.region==""
 						info "#{player.getDisplayName} has entered region: #{region.id}."
@@ -194,6 +220,7 @@ class SpoutPack < RubyPlugin
 				end
 			end
 		end
+		# Player left region.
 		if !in_region && player_data.region!=""
 			info "#{player.getDisplayName} has left region: #{player_data.region}."
 			player_data.region = ""
@@ -205,6 +232,7 @@ end
 
 #### Data Types/Utils ####
 class ConfigBase
+	# TODO: Implement Config variables to switch to YAML.
 	def region id, creative, texture_pack
 		if !@regions
 			@regions = {}
@@ -214,6 +242,7 @@ class ConfigBase
 end
 
 class PlayerData
+	# TODO: Player inventory + persistence.
 	attr_accessor :player, :region, :texture_pack
 	def initialize player
 		@player = player
@@ -234,6 +263,7 @@ class PlayerData
 end
 
 class Region
+	# TODO: Passwords/User/Group Access
 	attr_accessor :id, :creative, :texture_pack
 	def initialize id, creative, texture_pack
 		@id = id
@@ -243,6 +273,7 @@ class Region
 end
 
 #### Other Included Libraries ####
+# TODO: Get rid of everthing below here.
 # ================== EVERYTHING BELOW THIS LINE BELONG TO THEIR RESPECTIVE OWNERS ==================
 
 # Ruby permissions library 0.2
