@@ -112,17 +112,17 @@ class SpoutBoost < RubyPlugin
 		end
 	end
 	def load_inv player, dir
-	    config_file = File.join(File.dirname(__FILE__),"./SpoutBoost/inventory/#{dir}/#{player.getName}.yml")
-	    if File.exists?(config_file)
-	            File.open(config_file, "r") do |object|
-	                    debug "loading config"
-	                    player.getInventory.setContents YAML::load(object).get_inv.to_java(ItemStack)
-	            end
-	            debug "Inventory loaded."
-	    else
-	            debug "No inventory found! Setting to blank."
-	    end
-    end
+		config_file = File.join(File.dirname(__FILE__),"./SpoutBoost/inventory/#{dir}/#{player.getName}.yml")
+		if File.exists?(config_file)
+	        	File.open(config_file, "r") do |object|
+	                	debug "loading config"
+	                	player.getInventory.setContents YAML::load(object).get_inv.to_java(ItemStack)
+	        	end
+	        	debug "Inventory loaded."
+	    	else
+	        	debug "No inventory found! Setting to blank."
+		end
+	end
    	def onEnable
    		@logger = Logger.getLogger("Minecraft")
 		check_dirs
@@ -130,9 +130,9 @@ class SpoutBoost < RubyPlugin
       		@pm = getServer.getPluginManager
 		# TODO: Add password security. Below is a method stub.
 		if false
-      		info "Password enabled."
-      		registerEvent(Event::Type::PLAYER_LOGIN, Event::Priority::Normal) do |infoinEvent|
-		  		scheduleSyncDelayedTask(1) do
+			info "Password enabled."
+			registerEvent(Event::Type::PLAYER_LOGIN, Event::Priority::Normal) do |infoinEvent|
+				scheduleSyncDelayedTask(1) do
 					player = SpoutManager::getPlayer(infoinEvent.getPlayer)
 					popup = GenericPopup.new
 					text = GenericLabel.new @conf.motd
@@ -154,10 +154,10 @@ class SpoutBoost < RubyPlugin
 					info "Created MOTD for #{player.getDisplayName()}"
 				end
 			end
-      	end
+		end
 		# MOTD handling code.
 		# TODO: Add close button or Rules Accept/Deny button.
-      	if @conf.motd
+		if @conf.motd
       		info "MOTD enabled."
 		  	registerEvent(Event::Type::PLAYER_JOIN, Event::Priority::Normal) do |infoinEvent|
 		  		scheduleSyncDelayedTask(1) do
@@ -210,7 +210,27 @@ class SpoutBoost < RubyPlugin
 			end
 			registerEvent(Event::Type::PLAYER_PLACE_BLOCK, Event::Priority::Normal) do |event|
 				if event.getPlayer.getGameMode == GameMode::CREATIVE
-					
+					pt = BukkitUtil.toVector(player.getBlockPlaced.getLocation)
+					rm = @wg.getRegionManager(player.getWorld)
+					set = rm.getApplicableRegions(pt).iterator
+					player_data = @players[player]
+					in_region = false
+					while set.hasNext
+						elem = set.next
+						region = @conf.regions[elem.getId]
+						if region
+							in_region = true
+							# Player entered/switched region.
+							if region.id!=player_data.region
+								if !region.creative
+									event.setCancelled true
+								end
+							end
+						end
+					end
+					if !in_region && !@conf.default_creative
+						event.setCancelled true
+					end
 				end
 			end
 		end
