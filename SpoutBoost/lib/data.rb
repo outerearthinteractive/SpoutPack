@@ -24,3 +24,43 @@ class Config < ConfigBase
 				)
 	end
 end
+class ConfigBase
+	# TODO: Implement Config variables to switch to YAML.
+	def region id, creative, texture_pack
+		if !@regions
+			@regions = {}
+		end
+		@regions.store(id,Region.new(id,creative,texture_pack))
+	end
+end
+
+class PlayerData
+	# TODO: Player inventory + persistence.
+	attr_accessor :player, :region, :texture_pack
+	def initialize player
+		@player = player
+		@region = ""
+		@texture_pack = ""
+		@authed = true
+	end
+	def set_texture_pack texture_pack
+		if texture_pack!=@texture_pack
+			@texture_pack = texture_pack
+			if @texture_pack == ""
+				@player.resetTexturePack
+			elsif
+				@player.setTexturePack @texture_pack
+			end
+		end
+	end
+end
+
+class Region
+	# TODO: Passwords/User/Group Access
+	attr_accessor :id, :creative, :texture_pack
+	def initialize id, creative, texture_pack
+		@id = id
+		@creative = creative
+		@texture_pack = texture_pack
+	end
+end
