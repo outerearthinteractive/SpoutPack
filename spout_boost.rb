@@ -1,9 +1,9 @@
-# SpoutPack
+# SpoutBoost
 # A list of useful functions and tools for any server running spout.
 
 #### Plugin Info ####
 Plugin.is {
-    name "SpoutPack"
+    name "SpoutBoost"
     version "0.3"
     author "d4l3k"
     description "A pack of useful tools for any Spout Server."
@@ -13,7 +13,7 @@ Plugin.is {
         :aliases => [ :settitle]
     }
     commands :spreload => {
-        :description => "Reloads the Spoutpack.",
+        :description => "Reloads the SpoutBoost.",
         :usage => "/spreload",
     }
 }
@@ -29,8 +29,8 @@ $: << file unless $:.include? file
 require 'yaml'
 
 # Libraries
-require 'SpoutPack/lib/data'
-require 'SpoutPack/lib/permissions'
+require 'SpoutBoost/lib/data'
+require 'SpoutBoost/lib/permissions'
 
 #### Imports ####
 # Java Imports
@@ -58,7 +58,7 @@ import 'com.sk89q.worldguard.bukkit.BukkitUtil'
 
 #### Main Plugin ####
 # Pretty much everything happens here.
-class SpoutPack < RubyPlugin
+class SpoutBoost < RubyPlugin
 	#### I/O to Console ####
 	# TODO: Set logger prefix & use @log.info, @log.debug, etc.
 	def info msg # Standard output to console.
@@ -76,7 +76,7 @@ class SpoutPack < RubyPlugin
 
 	# Housekeeping for directories.
 	def check_dirs
-		files = ["./SpoutPack","./SpoutPack/inventory","./SpoutPack/inventory/creative","./SpoutPack/inventory/survival"]
+		files = ["./SpoutBoost","./SpoutBoost/inventory","./SpoutBoost/inventory/creative","./SpoutBoost/inventory/survival"]
 		files.each do |object|
 			file_path = File.join(File.dirname(__FILE__),object)
 			if !File.exists?(file_path)
@@ -86,7 +86,7 @@ class SpoutPack < RubyPlugin
 		end
 	end
 	def load_config
-		config_file = File.join(File.dirname(__FILE__),"./SpoutPack/config.yml")
+		config_file = File.join(File.dirname(__FILE__),"./SpoutBoost/config.yml")
 		if File.exists?(config_file)
 			File.open(config_file, "r") do |object|
 				debug "loading config"
@@ -100,19 +100,19 @@ class SpoutPack < RubyPlugin
 		end
 	end
 	def save_config
-		config_file = File.join(File.dirname(__FILE__),"./SpoutPack/config.yml")
+		config_file = File.join(File.dirname(__FILE__),"./SpoutBoost/config.yml")
 		File.open(config_file, "w") do |file|
 			file.print YAML::dump(@conf)
 		end
 	end
 	def save_inv player, dir
-		inv_file = File.join(File.dirname(__FILE__),"./SpoutPack/inventory/#{dir}/#{player.getName}.yml")
+		inv_file = File.join(File.dirname(__FILE__),"./SpoutBoost/inventory/#{dir}/#{player.getName}.yml")
 		File.open(inv_file, "w") do |file|
 			file.print YAML::dump(PlayerInv.new(player.getInventory.getContents))
 		end
 	end
 	def load_inv player, dir
-	    config_file = File.join(File.dirname(__FILE__),"./SpoutPack/inventory/#{dir}/#{player.getName}.yml")
+	    config_file = File.join(File.dirname(__FILE__),"./SpoutBoost/inventory/#{dir}/#{player.getName}.yml")
 	    if File.exists?(config_file)
 	            File.open(config_file, "r") do |object|
 	                    debug "loading config"
@@ -231,17 +231,17 @@ class SpoutPack < RubyPlugin
 		# TODO: Region commands.
 		player = SpoutManager::getPlayer(sender.getPlayer)
 	   	if cmd.getName()=="title"||cmd.getName()=="settitle" 
-	   		if args.length==1&&player.has("spoutpack.title.self")
+	   		if args.length==1&&player.has("SpoutBoost.title.self")
 	   			player.setTitle args[0]
 	   			info "Set #{player.getDisplayName}'s title."
 	   			return true
-	   		elsif args.length==2&&player.has("spoutpack.title.other")
+	   		elsif args.length==2&&player.has("SpoutBoost.title.other")
 	   			player.setTitle args[0]
 	   			info "#{sender.getPlayer.getDisplayName} set #{player.getDisplayName}'s title."
 	   			return true
 	   		end
 	   	end
-	   	if cmd.getName()=="spreload"&&player.has("spoutpack.reload")
+	   	if cmd.getName()=="spreload"&&player.has("SpoutBoost.reload")
 	   		load_config
 	   		return true
 	   	end
