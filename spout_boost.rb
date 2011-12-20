@@ -22,16 +22,20 @@ Plugin.is {
 # (This should be done by default, but requires more than just the jruby.jar.)
 # TODO: Fix this in RubyBukkit source & push the changes.
 # This plugin requires 1.9 for easy Psych compatibility.
-file = "/usr/share/ruby-rvm/rubies/jruby-1.6.1/lib/ruby/1.9/"
+file = File.join(File.dirname(__FILE__),"./jruby-1.6.5/lib/ruby/1.9/")
 $: << file unless $:.include? file
 
 # Ruby Libraries
 require 'yaml'
 
+# Libraries
+require 'SpoutPack/lib/data'
+require 'SpoutPack/lib/permissions'
+
 #### Imports ####
 # Java Imports
 import 'java.util.logging.Logger'
-
+import 'java.util.logging.Level'
 # Spout imports
 import 'org.getspout.spoutapi.gui.Widget'
 import 'org.getspout.spoutapi.gui.WidgetAnchor'
@@ -45,6 +49,7 @@ import 'org.bukkit.Location'
 import 'org.bukkit.event.Event'
 import 'org.bukkit.event.player.PlayerMoveEvent'
 import 'org.bukkit.GameMode'
+import 'org.bukkit.inventory.ItemStack'
 
 # WorldGuard imports
 import 'com.sk89q.worldguard.protection.managers.RegionManager'
@@ -62,25 +67,68 @@ class SpoutPack < RubyPlugin
 	end
 	def debug msg # Debug output to console.
 		# Uses bash escape codes for pretty colors.
-		@logger.debug "\e[33m[\e[32mSpoutCraft\e[33m] #{msg}\e[0m"
+		@logger.info "\e[33m[\e[32mSpoutCraft\e[33m] #{msg}\e[0m"
 	end
 	def err msg # Used for error messages.
 		# Uses bash escape codes for pretty colors.
-		@logger.error "\e[31m[\e[32mSpoutCraft\e[31m] #{msg}\e[0m"
+		@logger.log Level::WARNING, "\e[31m[\e[32mSpoutCraft\e[31m] #{msg}\e[0m"
 	end
 
-	# Easy method to load/reload the config file.
-	def load_config
-		load "SpoutPack/config.rb"
-		@conf = Config.new
-		#TODO: Convert to yaml based config. Should be able to keep same file format.
+	# Housekeeping for directories.
+	def check_dirs
+		files = ["./SpoutPack","./SpoutPack/inventory","./SpoutPack/inventory/creative","./SpoutPack/inventory/survival"]
+		files.each do |object|
+			file_path = File.join(File.dirname(__FILE__),object)
+			if !File.exists?(file_path)
+				info "Mkdir: #{file_path}"
+				Dir.mkdir(file_path)
+			end
+		end
 	end
+	def load_config
+		config_file = File.join(File.dirname(__FILE__),"./SpoutPack/config.yml")
+		if File.exists?(config_file)
+			File.open(config_file, "r") do |object|
+				debug "loading config"
+				@conf = YAML::load(object)
+			end
+			debug "Config loaded."
+		else
+			@conf = Config.new
+			debug "Created new config file."
+			save_config
+		end
+	end
+	def save_config
+		config_file = File.join(File.dirname(__FILE__),"./SpoutPack/config.yml")
+		File.open(config_file, "w") do |file|
+			file.print YAML::dump(@conf)
+		end
+	end
+	def save_inv player, dir
+		inv_file = File.join(File.dirname(__FILE__),"./SpoutPack/inventory/#{dir}/#{player.getName}.yml")
+		File.open(inv_file, "w") do |file|
+			file.print YAML::dump(PlayerInv.new(player.getInventory.getContents))
+		end
+	end
+	def load_inv player, dir
+	    config_file = File.join(File.dirname(__FILE__),"./SpoutPack/inventory/#{dir}/#{player.getName}.yml")
+	    if File.exists?(config_file)
+	            File.open(config_file, "r") do |object|
+	                    debug "loading config"
+	                    player.getInventory.setContents YAML::load(object).get_inv.to_java(ItemStack)
+	            end
+	            debug "Inventory loaded."
+	    else
+	            debug "No inventory found! Setting to blank."
+	    end
+    end
    	def onEnable
    		@logger = Logger.getLogger("Minecraft")
-   		load_config
+		check_dirs
+		load_config
       		@pm = getServer.getPluginManager
-      	
-		# Change this to if @conf.password to work. Has errors.
+		# TODO: Add password security. Below is a method stub.
 		if false
       			info "Password enabled."
       			registerEvent(Event::Type::PLAYER_LOGIN, Event::Priority::Normal) do |infoinEvent|
@@ -136,7 +184,6 @@ class SpoutPack < RubyPlugin
 			end
 		end
 		# Extra player data handling code. 
-		# TODO: Persist player data (inventory is a must).
 	  	registerEvent(Event::Type::PLAYER_JOIN, Event::Priority::Normal) do |event|
 	  		scheduleSyncDelayedTask(1) do
 				player = SpoutManager::getPlayer(event.getPlayer)
@@ -154,6 +201,17 @@ class SpoutPack < RubyPlugin
 			registerEvent(Event::Type::PLAYER_MOVE, Event::Priority::Normal) do |event|
 				player = SpoutManager::getPlayer(event.getPlayer)
 				update_region player
+			end
+			registerEvent(Event::Type::PLAYER_DROP_ITEM, Event::Priority::Normal) do |event|
+				if event.getPlayer.getGameMode == GameMode::CREATIVE
+					event.getItemDrop.remove
+					event.setCancelled(true)
+				end
+			end
+			registerEvent(Event::Type::PLAYER_PLACE_BLOCK, Event::Priority::Normal) do |event|
+				if event.getPlayer.getGameMode == GameMode::CREATIVE
+					
+				end
 			end
 		end
 		# Attempt to find worldguard. May later pop errors if worldguard is reloaded. (Spout doesn't like being reloaded.)
@@ -191,6 +249,9 @@ class SpoutPack < RubyPlugin
 	end
 	# Easy method to update region info (used during move events & player join)
 	def update_region player
+		if !@conf.regions
+			return
+		end
 		# TODO: Consider switching from event driven to time driven for less server impact.
 		pt = BukkitUtil.toVector(player.getLocation)
 		
@@ -207,14 +268,19 @@ class SpoutPack < RubyPlugin
 				if region.id!=player_data.region
 					if player_data.region==""
 						info "#{player.getDisplayName} has entered region: #{region.id}."
+						player.sendMessage("You have entered region: #{region.id}.")
 					elsif
-						info "#{player.getDisplayName} has left region: #{player_data.region}, to enter region: #{region.id}."
+						info "#{player.getDisplayName} has left region: #{player_data.region}; to enter region: #{region.id}."
+						player.sendMessage "You have left region #{player_data.region}; to enter region: #{region.id}."
 					end
 					player_data.region = region.id
+					region_mode = GameMode::SURVIVAL
+					if region.creative
+						region_mode = GameMode::CREATIVE
+					end
 					mode = player.getGameMode
-					if region.creative != mode
-						# TODO: Setup item persistence.
-						player.setGameMode region.creative
+					if region_mode != mode
+						set_gamemode player, region_mode
 					end
 					player_data.set_texture_pack region.texture_pack
 				end
@@ -223,121 +289,27 @@ class SpoutPack < RubyPlugin
 		# Player left region.
 		if !in_region && player_data.region!=""
 			info "#{player.getDisplayName} has left region: #{player_data.region}."
+			player.sendMessage("You have left region: #{player_data.region}.")
 			player_data.region = ""
-			player.setGameMode @conf.default_gamemode
+			default_mode = GameMode::SURVIVAL
+			if @conf.default_creative
+                		default_mode = GameMode::CREATIVE
+            		end
+			if default_mode != player.getGameMode
+				set_gamemode player, default_mode
+			end
 			player_data.set_texture_pack @conf.default_texture_pack
 		end
 	end
-end
-
-#### Data Types/Utils ####
-class ConfigBase
-	# TODO: Implement Config variables to switch to YAML.
-	def region id, creative, texture_pack
-		if !@regions
-			@regions = {}
+	def set_gamemode player, gamemode
+		old_dir = "creative"
+		dir = "survival"
+		if gamemode == GameMode::CREATIVE
+			dir = "creative"
+			old_dir = "survival"
 		end
-		@regions.store(id,Region.new(id,creative,texture_pack))
+		save_inv player, old_dir
+		load_inv player, dir
+		player.setGameMode gamemode
 	end
 end
-
-class PlayerData
-	# TODO: Player inventory + persistence.
-	attr_accessor :player, :region, :texture_pack
-	def initialize player
-		@player = player
-		@region = ""
-		@texture_pack = ""
-		@authed = true
-	end
-	def set_texture_pack texture_pack
-		if texture_pack!=@texture_pack
-			@texture_pack = texture_pack
-			if @texture_pack == ""
-				@player.resetTexturePack
-			elsif
-				@player.setTexturePack @texture_pack
-			end
-		end
-	end
-end
-
-class Region
-	# TODO: Passwords/User/Group Access
-	attr_accessor :id, :creative, :texture_pack
-	def initialize id, creative, texture_pack
-		@id = id
-		@creative = creative
-		@texture_pack = texture_pack
-	end
-end
-
-#### Other Included Libraries ####
-# TODO: Get rid of everthing below here.
-# ================== EVERYTHING BELOW THIS LINE BELONG TO THEIR RESPECTIVE OWNERS ==================
-
-# Ruby permissions library 0.2
-#
-# Supports: Permissions, PermissionEx, GroupManager
-#
-# Usage:
-# player.has("permission.node")
-# - or -
-# Permissions.playerHas(player, "permissons.node")
-#
-# Setup:
-# require 'lib/permissions'
-#
-# @author Zeerix
-
-class Permissions
-    # singleton
-    def self.instance
-        @permissions = Permissions.new if @permissions == nil
-        @permissions
-    end
-    
-    def self.playerHas(player, perm, default); instance.playerHas(player, perm, default); end
-    def self.plugin; instance.plugin; end
-
-    def self.pluginName
-        plugin.getDescription.getFullName if plugin != nil
-    end
-        
-    # the handler
-    attr_reader :plugin
-    
-    def initialize
-        server = org.bukkit.Bukkit.getServer
-        gm = server.getPluginManager.getPlugin("GroupManager")
-        pex = server.getPluginManager.getPlugin("PermissionsEx")
-        pm = server.getPluginManager.getPlugin("Permissions")
-
-        if gm != nil then
-            @plugin = gm
-            @handler = proc { |player, perm, default| gm.getWorldsHolder.getWorldPermissions(player).has(player, perm) }
-        elsif pex != nil then
-            @plugin = pex
-            @handler = proc { |player, perm, default| pex.has(player, perm) }
-        elsif pm != nil then
-            @plugin = pm
-            @handler = proc { |player, perm, default| pm.getHandler.has(player, perm) }
-        else
-            @handler = proc { |player, perm, default| default }
-        end
-    end
-    
-    def playerHas(player, perm, default)
-        @handler.call(player, perm, default)
-    end
-end
-
-module PlayerPermissions
-    def has(name, default = false)
-        Permissions.playerHas(self, name, default)
-    end
-end
-
-JavaUtilities.extend_proxy("org.bukkit.entity.Player") {
-    include PlayerPermissions
-}
