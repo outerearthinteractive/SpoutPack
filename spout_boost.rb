@@ -130,8 +130,8 @@ class SpoutPack < RubyPlugin
       		@pm = getServer.getPluginManager
 		# TODO: Add password security. Below is a method stub.
 		if false
-      			info "Password enabled."
-      			registerEvent(Event::Type::PLAYER_LOGIN, Event::Priority::Normal) do |infoinEvent|
+      		info "Password enabled."
+      		registerEvent(Event::Type::PLAYER_LOGIN, Event::Priority::Normal) do |infoinEvent|
 		  		scheduleSyncDelayedTask(1) do
 					player = SpoutManager::getPlayer(infoinEvent.getPlayer)
 					popup = GenericPopup.new
@@ -154,11 +154,11 @@ class SpoutPack < RubyPlugin
 					info "Created MOTD for #{player.getDisplayName()}"
 				end
 			end
-      		end
+      	end
 		# MOTD handling code.
 		# TODO: Add close button or Rules Accept/Deny button.
-      		if @conf.motd
-      			info "MOTD enabled."
+      	if @conf.motd
+      		info "MOTD enabled."
 		  	registerEvent(Event::Type::PLAYER_JOIN, Event::Priority::Normal) do |infoinEvent|
 		  		scheduleSyncDelayedTask(1) do
 					player = SpoutManager::getPlayer(infoinEvent.getPlayer)
