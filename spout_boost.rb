@@ -25,13 +25,6 @@ Plugin.is {
 file = File.join(File.dirname(__FILE__),"./jruby-1.6.5/lib/ruby/1.9/")
 $: << file unless $:.include? file
 
-# Ruby Libraries
-require 'yaml'
-
-# Libraries
-require 'SpoutBoost/lib/data'
-require 'SpoutBoost/lib/permissions'
-
 #### Imports ####
 # Java Imports
 import 'java.util.logging.Logger'
@@ -43,6 +36,7 @@ import 'org.getspout.spoutapi.gui.GenericPopup'
 import 'org.getspout.spoutapi.gui.GenericLabel'
 import 'org.getspout.spoutapi.SpoutManager'
 import 'org.getspout.spoutapi.player.SpoutPlayer'
+import 'org.getspout.spoutapi.event.spout.SpoutListener'
 
 # Bukkit imports
 import 'org.bukkit.Location'
@@ -55,6 +49,14 @@ import 'org.bukkit.inventory.ItemStack'
 import 'com.sk89q.worldguard.protection.managers.RegionManager'
 import 'com.sk89q.worldguard.protection.ApplicableRegionSet'
 import 'com.sk89q.worldguard.bukkit.BukkitUtil'
+
+# Ruby Libraries
+require 'yaml'
+
+# Libraries
+require 'SpoutBoost/lib/data'
+require 'SpoutBoost/lib/permissions'
+require 'SpoutBoost/lib/inventory_listener'
 
 #### Main Plugin ####
 # Pretty much everything happens here.
@@ -208,7 +210,7 @@ class SpoutBoost < RubyPlugin
 					event.setCancelled(true)
 				end
 			end
-			registerEvent(Event::Type::PLAYER_PLACE_BLOCK, Event::Priority::Normal) do |event|
+			registerEvent(Event::Type::BLOCK_PLACE, Event::Priority::Normal) do |event|
 				if event.getPlayer.getGameMode == GameMode::CREATIVE
 					pt = BukkitUtil.toVector(player.getBlockPlaced.getLocation)
 					rm = @wg.getRegionManager(player.getWorld)
@@ -233,6 +235,7 @@ class SpoutBoost < RubyPlugin
 					end
 				end
 			end
+			@pm.registerEvent(Event::Type::CUSTOM_EVENT, BoostListener.new, Event::Priority::Normal, self)
 		end
 		# Attempt to find worldguard. May later pop errors if worldguard is reloaded. (Spout doesn't like being reloaded.)
 		# TODO: Better error handling (may not need it).

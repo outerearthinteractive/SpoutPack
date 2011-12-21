@@ -5,7 +5,7 @@
 
 
 
-class Config < ConfigBase
+class Config
 	attr_accessor :motd, :default_creative, :default_texture_pack, :regions, :password
 	
 	def initialize
@@ -23,9 +23,6 @@ class Config < ConfigBase
 			"http://www.retributiongames.com/quandary/files/Quandary_4.2_3_Djeran.zip"
 				)
 	end
-end
-class ConfigBase
-	# TODO: Implement Config variables to switch to YAML.
 	def region id, creative, texture_pack
 		if !@regions
 			@regions = {}
