@@ -12,9 +12,9 @@ Plugin.is {
         :usage => "/title <player> <title>\n/title <title>",
         :aliases => [ :settitle]
     }
-    commands :boost => {
-        :description => "Controls SpoutBoost.",
-        :usage => "/boost <options>",
+    commands :spreload => {
+        :description => "Reloads the SpoutBoost.",
+        :usage => "/spreload",
     }
 }
 #### Requires ####
@@ -22,8 +22,8 @@ Plugin.is {
 # (This should be done by default, but requires more than just the jruby.jar.)
 # TODO: Fix this in RubyBukkit source & push the changes.
 # This plugin requires 1.9 for easy Psych compatibility.
-#file = File.join(File.dirname(__FILE__),"./jruby-1.6.5/lib/ruby/1.9/")
-#$: << file unless $:.include? file
+file = File.join(File.dirname(__FILE__),"./jruby-1.6.5/lib/ruby/1.9/")
+$: << file unless $:.include? file
 
 #### Imports ####
 # Java Imports
@@ -44,7 +44,6 @@ import 'org.bukkit.event.Event'
 import 'org.bukkit.event.player.PlayerMoveEvent'
 import 'org.bukkit.GameMode'
 import 'org.bukkit.inventory.ItemStack'
-import 'org.bukkit.Material'
 
 # WorldGuard imports
 import 'com.sk89q.worldguard.protection.managers.RegionManager'
@@ -124,14 +123,13 @@ class SpoutBoost < RubyPlugin
 	        	debug "Inventory loaded."
 	    	else
 	        	debug "No inventory found! Setting to blank."
-	        	player.getInventory.clear
 		end
 	end
    	def onEnable
    		@logger = Logger.getLogger("Minecraft")
 		check_dirs
 		load_config
-		@pm = getServer.getPluginManager
+      		@pm = getServer.getPluginManager
 		# TODO: Add password security. Below is a method stub.
 		if false
 			info "Password enabled."
@@ -214,8 +212,7 @@ class SpoutBoost < RubyPlugin
 			end
 			registerEvent(Event::Type::BLOCK_PLACE, Event::Priority::Normal) do |event|
 				if event.getPlayer.getGameMode == GameMode::CREATIVE
-					player = event.getPlayer
-					pt = BukkitUtil.toVector(event.getBlockPlaced.getLocation)
+					pt = BukkitUtil.toVector(player.getBlockPlaced.getLocation)
 					rm = @wg.getRegionManager(player.getWorld)
 					set = rm.getApplicableRegions(pt).iterator
 					player_data = @players[player]
@@ -238,18 +235,7 @@ class SpoutBoost < RubyPlugin
 					end
 				end
 			end
-			#@pm.registerEvent(Event::Type::CUSTOM_EVENT, BoostListener.new, Event::Priority::Normal, self)
-			registerEvent(Event::Type::PLAYER_INVENTORY, Event::Priority::Normal) do |event|
-				debug "inventory!!!"
-				if event.getPlayer.getGameMode == GameMode::CREATIVE
-					debug "creative"
-					if event.getInventory.getName
-						debug event.getInventory.getName
-						debug "Chest canceled."
-						event.setCancelled true
-					end
-				end
-			end
+			@pm.registerEvent(Event::Type::CUSTOM_EVENT, BoostListener.new, Event::Priority::Normal, self)
 		end
 		# Attempt to find worldguard. May later pop errors if worldguard is reloaded. (Spout doesn't like being reloaded.)
 		# TODO: Better error handling (may not need it).
@@ -261,47 +247,26 @@ class SpoutBoost < RubyPlugin
 		info "Enabled."
    	end
    	def onDisable
-		save_config
+		# TODO: Save yamls for players/regions (seperate function?).
    		info "Disabled."
 	end
 	def onCommand(sender, cmd, label, args)
 		# TODO: Region commands.
 		player = SpoutManager::getPlayer(sender.getPlayer)
-		if cmd.getName.downcase=="boost"&&sender.hasPermission("SpoutBoost.region")
-			arg0 = args[0].downcase
-			if arg0 == "reload"
-				load_config
-				sender.sendMessage("SpoutBoost config reloaded")
-				return true
-			elsif arg0 == "add" && args.length==3
-				creative = false
-				arg2 = args[2].downcase
-				if arg2=="1"||arg2=="true"||arg2=="creative"
-					creative = true
-				end
-				@conf.region args[1], creative, ""
-				save_config
-				sender.sendMessage("#{args[1]} added")
-				return true
-			elsif arg0 == "remove" && args.length==2
-				@conf.regions.delete args[1] do |reg|
-					sender.sendMessage("#{reg} not found to delete.")
-					return false
-				end
-				sender.sendMessage("#{args[1]} deleted.")
-				save_config
-				return true
-			end
-		elsif cmd.getName().downcase=="title"||cmd.getName().downcase=="settitle" 
-	   		if args.length==1&&sender.hasPermission("SpoutBoost.title.self")
+	   	if cmd.getName()=="title"||cmd.getName()=="settitle" 
+	   		if args.length==1&&player.has("SpoutBoost.title.self")
 	   			player.setTitle args[0]
 	   			info "Set #{player.getDisplayName}'s title."
 	   			return true
-	   		elsif args.length==2&&sender.hasPermission("SpoutBoost.title.other")
+	   		elsif args.length==2&&player.has("SpoutBoost.title.other")
 	   			player.setTitle args[0]
 	   			info "#{sender.getPlayer.getDisplayName} set #{player.getDisplayName}'s title."
 	   			return true
 	   		end
+	   	end
+	   	if cmd.getName()=="spreload"&&player.has("SpoutBoost.reload")
+	   		load_config
+	   		return true
 	   	end
 	   	return false
 	end

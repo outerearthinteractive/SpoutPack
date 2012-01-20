@@ -4,7 +4,6 @@
 # spoutpack.title.other - set someone else's title.
 
 
-
 class ConfigBase
 	attr_accessor :motd, :default_creative, :default_texture_pack, :regions, :password
 	
